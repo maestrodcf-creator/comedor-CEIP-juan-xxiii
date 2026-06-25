@@ -21,7 +21,7 @@ const estado = {
   fechaStaffSeleccionada: null,
   listadoStaff: [],
   tabAdminActiva: 'alumnos',
-  modoUnificar: false,
+  modoSeleccion: null,
   clasesAdmin: [],
   familiasAdmin: [],
   alumnosAdmin: [],
@@ -995,32 +995,68 @@ function renderTabAlumnos() {
     </div>
 
     <div class="tarjeta-admin">
-      <div class="form-grupo" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+      <div class="form-grupo" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
         <label style="margin-bottom:0">Alumnos (${estado.alumnosAdmin.length})</label>
-        <button class="btn-mini azul" onclick="toggleModoUnificar()">${estado.modoUnificar ? 'Cancelar' : '🔗 Unificar hermanos'}</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn-mini azul" onclick="toggleModoSeleccion('unificar')">${estado.modoSeleccion === 'unificar' ? 'Cancelar' : '🔗 Unificar'}</button>
+          <button class="btn-mini rojo" onclick="toggleModoSeleccion('eliminar')">${estado.modoSeleccion === 'eliminar' ? 'Cancelar' : '🗑️ Eliminar varios'}</button>
+        </div>
       </div>
-      ${estado.modoUnificar ? `
+      <input id="buscador-alumnos" placeholder="🔎 Buscar por nombre o apellidos..." style="width:100%;padding:10px 14px;border:2px solid var(--crema-oscuro);border-radius:var(--radio-sm);font-size:14px;margin-bottom:12px;background:var(--crema);color:var(--marron)" oninput="filtrarListaAlumnos(this.value)">
+      ${estado.modoSeleccion === 'unificar' ? `
         <p style="font-size:12.5px;color:var(--marron-suave);font-weight:600;margin:0 0 12px">
           Marca 2 o más alumnos que sean hermanos y pulsa "Unificar seleccionados".
         </p>
       ` : ''}
+      ${estado.modoSeleccion === 'eliminar' ? `
+        <p style="font-size:12.5px;color:var(--marron-suave);font-weight:600;margin:0 0 12px">
+          Marca los alumnos que quieras eliminar y pulsa "Eliminar seleccionados". Esta acción no se puede deshacer.
+        </p>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn-mini" onclick="marcarTodosVisibles(true)">Marcar todos</button>
+          <button class="btn-mini" onclick="marcarTodosVisibles(false)">Desmarcar todos</button>
+        </div>
+      ` : ''}
       ${estado.alumnosAdmin.length === 0 ? `
         <div class="vacio-estado"><span class="emoji-grande">🧒</span><p>Todavía no hay alumnos dados de alta.</p></div>
-      ` : estado.alumnosAdmin.map(a => `
-        <div class="fila-lista-admin">
-          ${estado.modoUnificar ? `<input type="checkbox" class="check-unificar" data-id="${a.id}" data-familia="${a.familia_id}" style="width:20px;height:20px;margin-right:4px">` : ''}
-          <div class="fila-lista-admin-info">
-            <div class="fila-lista-admin-nombre">${escapeHtml(a.nombre)} ${escapeHtml(a.apellidos)}</div>
-            <div class="fila-lista-admin-detalle">${escapeHtml(a.clase_nombre)} · ${escapeHtml(a.familia_nombre)} (${a.familia_pin})</div>
-          </div>
-          ${!estado.modoUnificar ? `<button class="btn-mini rojo" onclick="eliminarAlumno('${a.id}', '${escapeHtml(a.nombre)}')">Eliminar</button>` : ''}
-        </div>
-      `).join('')}
-      ${estado.modoUnificar && estado.alumnosAdmin.length > 0 ? `
+      ` : `<div id="lista-alumnos-admin">${renderFilasAlumnosAdmin(estado.alumnosAdmin)}</div>`}
+      ${estado.modoSeleccion === 'unificar' && estado.alumnosAdmin.length > 0 ? `
         <button class="btn-principal azul" style="margin-top:12px" onclick="confirmarUnificarHermanos()">Unificar seleccionados</button>
+      ` : ''}
+      ${estado.modoSeleccion === 'eliminar' && estado.alumnosAdmin.length > 0 ? `
+        <button class="btn-principal" style="margin-top:12px;background:var(--rojo);box-shadow:0 4px 0 var(--rojo-oscuro)" onclick="confirmarEliminarVarios()">Eliminar seleccionados</button>
       ` : ''}
     </div>
   `;
+}
+
+function renderFilasAlumnosAdmin(lista) {
+  return lista.map(a => `
+    <div class="fila-lista-admin" data-nombre-busqueda="${escapeHtml((a.nombre + ' ' + a.apellidos).toLowerCase())}">
+      ${estado.modoSeleccion ? `<input type="checkbox" class="check-seleccion" data-id="${a.id}" data-familia="${a.familia_id}" style="width:20px;height:20px;margin-right:4px">` : ''}
+      <div class="fila-lista-admin-info">
+        <div class="fila-lista-admin-nombre">${escapeHtml(a.nombre)} ${escapeHtml(a.apellidos)}</div>
+        <div class="fila-lista-admin-detalle">${escapeHtml(a.clase_nombre)} · ${escapeHtml(a.familia_nombre)} (${a.familia_pin})</div>
+      </div>
+      ${!estado.modoSeleccion ? `<button class="btn-mini rojo" onclick="eliminarAlumno('${a.id}', '${escapeHtml(a.nombre)}')">Eliminar</button>` : ''}
+    </div>
+  `).join('');
+}
+
+function filtrarListaAlumnos(texto) {
+  const t = texto.trim().toLowerCase();
+  document.querySelectorAll('#lista-alumnos-admin [data-nombre-busqueda]').forEach(el => {
+    el.style.display = el.dataset.nombreBusqueda.includes(t) ? '' : 'none';
+  });
+}
+
+function marcarTodosVisibles(marcar) {
+  document.querySelectorAll('#lista-alumnos-admin [data-nombre-busqueda]').forEach(el => {
+    if (el.style.display !== 'none') {
+      const check = el.querySelector('.check-seleccion');
+      if (check) check.checked = marcar;
+    }
+  });
 }
 
 async function crearAlumno() {
@@ -1089,7 +1125,7 @@ function manejarArchivoExcel(inputEl) {
           hermano_de: String(f['Hermano/a de (nombre y apellidos, opcional)'] || '').trim() || null,
           observaciones: String(f['Observaciones (alergias, notas)'] || '').trim()
         }))
-        .filter(a => a.nombre && a.apellidos && a.clase);
+        .filter(a => a.nombre && a.apellidos);
 
       if (alumnos.length === 0) {
         resultadoCont.innerHTML = `<div class="mensaje-error visible">No se encontraron filas válidas. Revisa que la plantilla tenga las columnas correctas.</div>`;
@@ -1098,7 +1134,7 @@ function manejarArchivoExcel(inputEl) {
 
       resultadoCont.innerHTML = `<div class="cargando"><div class="spinner"></div>Importando ${alumnos.length} alumnos…</div>`;
 
-      const resultado = await rpc('comedor_admin_importar_alumnos_v2', { p_pin: estado.pinAdmin, p_alumnos: alumnos });
+      const resultado = await rpc('comedor_admin_importar_alumnos_v3', { p_pin: estado.pinAdmin, p_alumnos: alumnos });
       mostrarResultadoImportacion(resultado || []);
       await Promise.all([cargarAlumnosAdmin(), cargarFamiliasAdmin()]);
       renderTabAlumnos();
@@ -1113,21 +1149,21 @@ function manejarArchivoExcel(inputEl) {
 function mostrarResultadoImportacion(resultado) {
   const cont = document.getElementById('resultado-importacion-excel');
 
-  // Si vino un único resultado sin grupo y con texto de error, es un fallo total: no se creó nada.
-  const esErrorTotal = resultado.length === 1 && !resultado[0].grupo && resultado[0].nombres;
-  if (esErrorTotal) {
+  const filaAvisos = resultado.find(r => !r.grupo && r.nombres);
+  const gruposCreados = resultado.filter(r => r.grupo !== null && r.grupo !== undefined);
+  const totalAlumnos = gruposCreados.reduce((s, r) => s + (r.alumnos_creados || 0), 0);
+
+  if (totalAlumnos === 0) {
     cont.innerHTML = `
       <div class="mensaje-error visible" style="margin-top:10px;line-height:1.5">
-        ⚠️ No se ha importado nada. Corrige esto en el Excel y vuelve a subirlo:<br><br>
-        ${escapeHtml(resultado[0].nombres)}
+        ⚠️ No se ha importado ningún alumno. Revisa el Excel:<br><br>
+        ${filaAvisos ? escapeHtml(filaAvisos.nombres) : 'Comprueba que las columnas Nombre y Apellidos tengan datos.'}
       </div>
     `;
     return;
   }
 
-  const totalAlumnos = resultado.reduce((s, r) => s + (r.alumnos_creados || 0), 0);
-  const pinsTexto = resultado
-    .filter(r => r.grupo !== null)
+  const pinsTexto = gruposCreados
     .map(r => `${r.nombres} → PIN: ${r.pin_generado}`)
     .join('\n');
 
@@ -1135,7 +1171,8 @@ function mostrarResultadoImportacion(resultado) {
     <div class="pin-generado visible" style="white-space:pre-line;text-align:left;letter-spacing:normal;font-size:13px;line-height:1.6;max-height:280px;overflow-y:auto">
       ✅ ${totalAlumnos} alumnos importados correctamente.\n\n${pinsTexto}
     </div>
-    <button class="btn-secundario" style="margin-top:10px" onclick='descargarListadoPins(${JSON.stringify(resultado)})'>⬇️ Descargar listado de PINs</button>
+    ${filaAvisos ? `<div class="mensaje-error visible" style="margin-top:10px;line-height:1.5">⚠️ Avisos:<br>${escapeHtml(filaAvisos.nombres)}</div>` : ''}
+    <button class="btn-secundario" style="margin-top:10px" onclick='descargarListadoPins(${JSON.stringify(gruposCreados)})'>⬇️ Descargar listado de PINs</button>
   `;
 }
 
@@ -1254,15 +1291,15 @@ function exportarAlumnosWord() {
   URL.revokeObjectURL(url);
 }
 
-// ----- Unificar hermanos -----
+// ----- Selección múltiple: unificar hermanos / eliminar varios -----
 
-function toggleModoUnificar() {
-  estado.modoUnificar = !estado.modoUnificar;
+function toggleModoSeleccion(modo) {
+  estado.modoSeleccion = estado.modoSeleccion === modo ? null : modo;
   renderTabAlumnos();
 }
 
 async function confirmarUnificarHermanos() {
-  const checks = document.querySelectorAll('.check-unificar:checked');
+  const checks = document.querySelectorAll('.check-seleccion:checked');
   if (checks.length < 2) {
     mostrarToast('Selecciona al menos 2 alumnos para unificar.');
     return;
@@ -1288,11 +1325,37 @@ async function confirmarUnificarHermanos() {
     });
     const fila = resultado && resultado[0];
     mostrarToast(`Unificados correctamente · PIN: ${fila.pin}`, 4000);
-    estado.modoUnificar = false;
+    estado.modoSeleccion = null;
     await Promise.all([cargarAlumnosAdmin(), cargarFamiliasAdmin()]);
     renderTabAlumnos();
   } catch (e) {
     mostrarToast('No se pudo unificar. ' + (e.message || ''));
+  }
+}
+
+async function confirmarEliminarVarios() {
+  const checks = document.querySelectorAll('.check-seleccion:checked');
+  if (checks.length === 0) {
+    mostrarToast('Selecciona al menos 1 alumno para eliminar.');
+    return;
+  }
+
+  const ids = [...checks].map(c => c.dataset.id);
+  const nombresSeleccionados = estado.alumnosAdmin
+    .filter(a => ids.includes(a.id))
+    .map(a => `${a.nombre} ${a.apellidos}`)
+    .join(', ');
+
+  if (!confirm(`¿Eliminar a estos ${ids.length} alumnos? Esta acción no se puede deshacer.\n\n${nombresSeleccionados}`)) return;
+
+  try {
+    const eliminados = await rpc('comedor_admin_eliminar_alumnos_masivo', { p_pin: estado.pinAdmin, p_alumno_ids: ids });
+    mostrarToast(`${eliminados} alumno(s) eliminado(s) ✓`, 3000);
+    estado.modoSeleccion = null;
+    await Promise.all([cargarAlumnosAdmin(), cargarFamiliasAdmin()]);
+    renderTabAlumnos();
+  } catch (e) {
+    mostrarToast('No se pudo eliminar. ' + (e.message || ''));
   }
 }
 
